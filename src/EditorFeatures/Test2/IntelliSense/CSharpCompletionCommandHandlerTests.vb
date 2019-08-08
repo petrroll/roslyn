@@ -4,6 +4,7 @@ Imports System.Collections.Immutable
 Imports System.Globalization
 Imports System.Threading
 Imports Microsoft.CodeAnalysis.Completion
+Imports Microsoft.CodeAnalysis.Completion.Providers
 Imports Microsoft.CodeAnalysis.CSharp
 Imports Microsoft.CodeAnalysis.Editor.CSharp.Formatting
 Imports Microsoft.CodeAnalysis.Editor.UnitTests.Extensions
@@ -320,6 +321,66 @@ class Class1
     void Main(string[] args)
     {
         System.TimeSpan.FromMinutes
+    }
+}</text>.NormalizedValue, state.GetDocumentText())
+            End Using
+        End Function
+
+        <MemberData(NameOf(AllCompletionImplementations))>
+        <WpfTheory, Trait(Traits.Feature, Traits.Features.Completion)>
+        Public Async Function TestEnterIsConsumedWithAfterFullyTypedWordOption_NotFullyTyped(completionImplementation As CompletionImplementation) As Task
+            Using state = TestStateFactory.CreateCSharpTestState(completionImplementation,
+                  <Document>
+class Class1
+{
+    void Main(string[] args)
+    {
+        $$
+    }
+}</Document>)
+
+                state.Workspace.Options = state.Workspace.Options.WithChangedOption(
+                    CompletionOptions.EnterKeyBehavior, LanguageNames.CSharp, EnterKeyRule.AfterFullyTypedWord)
+                state.SendTypeChars("System.TimeSpan.FromMin")
+                state.SendReturn()
+                Await state.WaitForAsynchronousOperationsAsync()
+                Assert.Equal(<text>
+class Class1
+{
+    void Main(string[] args)
+    {
+        System.TimeSpan.FromMinutes
+    }
+}</text>.NormalizedValue, state.GetDocumentText())
+            End Using
+        End Function
+
+        <MemberData(NameOf(AllCompletionImplementations))>
+        <WpfTheory, Trait(Traits.Feature, Traits.Features.Completion)>
+        Public Async Function TestEnterIsConsumedWithAfterFullyTypedWordOption_FullyTyped(completionImplementation As CompletionImplementation) As Task
+            Using state = TestStateFactory.CreateCSharpTestState(completionImplementation,
+                  <Document>
+class Class1
+{
+    void Main(string[] args)
+    {
+        $$
+    }
+}</Document>)
+
+                state.Workspace.Options = state.Workspace.Options.WithChangedOption(
+                    CompletionOptions.EnterKeyBehavior, LanguageNames.CSharp, EnterKeyRule.AfterFullyTypedWord)
+
+                state.SendTypeChars("System.TimeSpan.FromMinutes")
+                state.SendReturn()
+                Await state.WaitForAsynchronousOperationsAsync()
+                Assert.Equal(<text>
+class Class1
+{
+    void Main(string[] args)
+    {
+        System.TimeSpan.FromMinutes
+
     }
 }</text>.NormalizedValue, state.GetDocumentText())
             End Using
@@ -5205,8 +5266,10 @@ namespace NS2
     public class Bar { }
 }
 "
-
-                state.Workspace.Options = state.Workspace.Options.WithChangedOption(CompletionOptions.ShowItemsFromUnimportedNamespaces, LanguageNames.CSharp, True)
+                ' Enable import completion and disable timebox.
+                state.Workspace.Options = state.Workspace.Options _
+                    .WithChangedOption(CompletionOptions.ShowItemsFromUnimportedNamespaces, LanguageNames.CSharp, True) _
+                    .WithChangedOption(CompletionServiceOptions.TimeoutInMillisecondsForImportCompletion, -1)
 
                 state.SendInvokeCompletionList()
                 Await state.AssertSelectedCompletionItem(displayText:="Bar", isHardSelected:=True, inlineDescription:="NS2")
@@ -5508,6 +5571,29 @@ class C
             End Using
         End Function
 
+        <WpfTheory, Trait(Traits.Feature, Traits.Features.Completion)>
+        <MemberData(NameOf(AllCompletionImplementations))>
+        Public Async Function CompletionBeforeVarWithEnableNullableReferenceAnalysisIDEFeatures(completionImplementation As CompletionImplementation) As Task
+            Using state = TestStateFactory.CreateTestStateFromWorkspace(completionImplementation,
+                 <Workspace>
+                     <Project Language="C#" LanguageVersion="CSharp8" CommonReferences="true" AssemblyName="CSProj" Features="run-nullable-analysis">
+                         <Document><![CDATA[
+class C
+{
+    void M(string s)
+    {
+        s$$
+        var o = new object();
+    }
+}]]></Document>
+                     </Project>
+                 </Workspace>)
+
+                state.SendTypeChars(".")
+                Await state.AssertCompletionSession()
+                state.AssertCompletionItemsContainAll({"Length"})
+            End Using
+        End Function
         Private Class MultipleChangeCompletionProvider
             Inherits CompletionProvider
 
