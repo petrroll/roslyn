@@ -2050,5 +2050,9 @@ Namespace Microsoft.CodeAnalysis.VisualBasic
 
             Return IsOnHeader(position, node, node.ForEachStatement)
         End Function
+
+        Private Function ISyntaxFactsService_IsExpressionStatement(node As SyntaxNode) As Boolean Implements ISyntaxFactsService.IsExpressionStatement
+            Return MyBase.IsExpressionStatement(node)
+        End Function
     End Class
 End Namespace
